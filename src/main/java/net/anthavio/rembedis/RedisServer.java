@@ -74,14 +74,16 @@ public class RedisServer implements Closeable {
         this(Rembedis.unpack(), params);
     }
 
-    public RedisServer(File binary, List<String> params) {
-        this(binary, params, null);
+    public RedisServer(File executable, List<String> params) {
+        this(executable, params, null);
     }
 
-    public RedisServer(File redisBinary, List<String> params, OutputStream sysOutStream) {
-        //make copy 
+    public RedisServer(File executable, List<String> params, OutputStream sysOutStream) {
+        if (executable.exists() == false) {
+            throw new IllegalArgumentException("Redis executable does not exist: " + executable);
+        }
         command = new ArrayList<String>(params);
-        command.add(0, redisBinary.getAbsolutePath());
+        command.add(0, executable.getAbsolutePath());
         int portIdx = command.indexOf("--port");
         if (portIdx != -1) {
             //some checks maybe...
