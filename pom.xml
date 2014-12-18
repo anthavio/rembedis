@@ -38,6 +38,7 @@
 
 	<properties>
 		<project.build.java.target>1.6</project.build.java.target>
+		<redis-classifier>redis-2.8.5</redis-classifier>
 	</properties>
 	
 	<developers>
@@ -104,6 +105,14 @@
 				</configuration>
 			</plugin>
 
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<classifier>${redis-classifier}</classifier>
+				</configuration>
+			</plugin>
+			
 		</plugins>
 	</build>
 

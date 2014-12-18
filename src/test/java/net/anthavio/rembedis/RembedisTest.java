@@ -50,7 +50,7 @@ public class RembedisTest {
     @Test
     public void testJedisPool() throws Exception {
 
-        EmbeddedRedis redis = new EmbeddedRedis();
+        RedisServer redis = new RedisServer();
         //redis.setSysOut(System.out);
         redis.start();
         Assertions.assertThat(redis.isRunning()).isTrue();
@@ -71,7 +71,7 @@ public class RembedisTest {
 
     @Test
     public void testRestarts() {
-        EmbeddedRedis redis = new EmbeddedRedis();
+        RedisServer redis = new RedisServer();
         Assertions.assertThat(redis.isRunning()).isFalse();
         redis.start();
         Assertions.assertThat(redis.isRunning()).isTrue();

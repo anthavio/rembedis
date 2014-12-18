@@ -1,3 +1,31 @@
+/**
+ * Copyright © 2014, Anthavio
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * The views and conclusions contained in the software and documentation are those
+ * of the authors and should not be interpreted as representing official policies,
+ * either expressed or implied, of the FreeBSD Project.
+ */
 package net.anthavio.process;
 
 import java.io.BufferedReader;
@@ -81,6 +109,9 @@ public class ExternalProcess implements Closeable {
         this.stdOutStream = stdOutStream; //nullable
     }
 
+    /**
+     * Closeable contract...
+     */
     @Override
     public void close() {
         stop();
@@ -169,12 +200,11 @@ public class ExternalProcess implements Closeable {
         Runtime.getRuntime().addShutdownHook(shutdownThread);
     }
 
+    /**
+     * Leak internal Process - use on your own risk!
+     */
     public Process getProcess() {
         return process;
-    }
-
-    public Thread getShutdownHook() {
-        return shutdownThread;
     }
 
     class SysoutReaderThread extends Thread {
@@ -191,16 +221,17 @@ public class ExternalProcess implements Closeable {
                 String line = null;
                 while ((line = br.readLine()) != null) {
                     if (started == false) {
-                        //capture only until found
+                        //capture and check only until found
                         sysout.add(line);
                         if (startupCheck.isStarted(process, sysout)) {
                             started = true;
                             synchronized (lock) {
-                                lock.notifyAll();
+                                lock.notifyAll(); //poke timeouter
                             }
-                            //sysout.clear(); //empty it as not heeded anymore
+                            //sysout.clear(); //empty it as not needed anymore?
                         }
                     }
+                    //Good practice of emptying process output as it may hang  
                     if (stdOutStream != null) {
                         stdOutStream.write(line.getBytes());
                         stdOutStream.write('\n');
@@ -219,7 +250,7 @@ public class ExternalProcess implements Closeable {
         private final ShutdownHook hook;
 
         public ShutdownHookThread(Process process, ShutdownHook hook) {
-            setName("ps-destroyer-" + hook);
+            setName("ps-destroyer-" + process);
             this.process = process;
             this.hook = hook;
 
@@ -234,55 +265,5 @@ public class ExternalProcess implements Closeable {
             }
         }
     }
-
-    public static interface LineEvaluator {
-
-        public boolean evaluate(String line);
-    }
-
-    public static class ContainsEvaluator implements LineEvaluator {
-
-        private String string;
-
-        public ContainsEvaluator(String string) {
-            this.string = string;
-        }
-
-        @Override
-        public boolean evaluate(String line) {
-            if (line.contains(string)) {
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        @Override
-        public String toString() {
-            return string;
-        }
-    }
-    /*
-    class TimeoutThread extends Thread {
-
-        private final int timeout;
-
-        public TimeoutThread(int timeout) {
-            this.timeout = timeout;
-            setDaemon(true);
-            setName("ps-timeout-" + process);
-        }
-
-        @Override
-        public void run() {
-            try {
-                Thread.sleep(timeout);
-            } catch (InterruptedException e) {
-                //ignore wakeup 
-            }
-            readerThread.interrupt();
-        }
-    }
-    */
 
 }
