@@ -37,6 +37,9 @@ import java.io.InputStreamReader;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+
 /**
  * 
  * @author martin.vanek
@@ -45,27 +48,53 @@ import org.junit.Test;
 public class RembedisTest {
 
     @Test
-    public void testProcess() throws Exception {
+    public void testJedisPool() throws Exception {
 
-        File binary = Rembedis.unpack();
-        ProcessBuilder builder = new ProcessBuilder(binary.getAbsolutePath(), "--port", Integer.toString(9999));
-        builder.directory(binary.getParentFile());
-        Process process = builder.start();
-        GuardedProcess consumer = new GuardedProcess(process, "The server is now ready to accept connections");
-        consumer.start(3000);
+        EmbeddedRedis redis = new EmbeddedRedis();
+        //redis.setSysOut(System.out);
+        redis.start();
+        Assertions.assertThat(redis.isRunning()).isTrue();
 
-        /*
-        InputStream errorStream = process.getErrorStream();
-        System.out.println("e>");
-        String e = capture(errorStream);
-        System.out.println("e<" + e);
-        
-        InputStream inputStream = process.getInputStream();
-        System.out.println("i>");
-        String i = capture(inputStream);
-        System.out.println("i<" + i);
-        */
-        //process.destroy();
+        JedisPool pool = new JedisPool("localhost", redis.getPort());
+        Jedis jedis = pool.getResource();
+
+        jedis.mset("abc", "1", "def", "2");
+        Assertions.assertThat(jedis.mget("abc").get(0)).isEqualTo("1");
+        Assertions.assertThat(jedis.mget("def").get(0)).isEqualTo("2");
+        Assertions.assertThat(jedis.mget("xyz").get(0)).isNull();
+        pool.returnResource(jedis);
+
+        pool.close();
+        redis.close();
+
+    }
+
+    @Test
+    public void testRestarts() {
+        EmbeddedRedis redis = new EmbeddedRedis();
+        Assertions.assertThat(redis.isRunning()).isFalse();
+        redis.start();
+        Assertions.assertThat(redis.isRunning()).isTrue();
+        try {
+            redis.start();
+            Assertions.failBecauseExceptionWasNotThrown(IllegalStateException.class);
+        } catch (IllegalStateException isx) {
+            Assertions.assertThat(isx.getMessage()).isEqualTo("Redis already running. Port " + redis.getPort());
+        }
+        int exit1 = redis.stop();
+        Assertions.assertThat(exit1).isZero();
+        Assertions.assertThat(redis.isRunning()).isFalse();
+
+        int exit2 = redis.stop();
+        Assertions.assertThat(exit2).isEqualTo(Integer.MIN_VALUE);
+        Assertions.assertThat(redis.isRunning()).isFalse();
+
+        redis.start();
+        Assertions.assertThat(redis.isRunning()).isTrue();
+        int exit3 = redis.stop();
+        Assertions.assertThat(exit3).isZero();
+        Assertions.assertThat(redis.isRunning()).isFalse();
+
     }
 
     @Test

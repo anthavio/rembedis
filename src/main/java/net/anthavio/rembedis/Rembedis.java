@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
+ * https://github.com/ServiceStack/redis-windows
  * 
  * @author martin.vanek
  *
