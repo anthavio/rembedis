@@ -107,7 +107,7 @@ public class RembedisTest {
         RedisServer slave = RedisServer.Builder().slaveof("localhost", port).configLine("bind 0.0.0.0")/*.setStdOutStream(System.out)*/.start();
         testJedisOperations(master.getPort());
 
-        Thread.sleep(30);
+        Thread.sleep(100);
         String value = readJedis(slave.getPort(), "abc");
         Assertions.assertThat(value).isEqualTo("1");
     }
