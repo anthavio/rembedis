@@ -75,9 +75,13 @@ public class RedisServer implements Closeable {
     }
 
     public RedisServer(File binary, List<String> params) {
+        this(binary, params, null);
+    }
+
+    public RedisServer(File redisBinary, List<String> params, OutputStream sysOutStream) {
         //make copy 
         command = new ArrayList<String>(params);
-        command.add(0, binary.getAbsolutePath());
+        command.add(0, redisBinary.getAbsolutePath());
         int portIdx = command.indexOf("--port");
         if (portIdx != -1) {
             //some checks maybe...
@@ -87,13 +91,9 @@ public class RedisServer implements Closeable {
             command.add("--port");
             command.add(String.valueOf(port));
         }
-    }
 
-    /**
-     * Use System.out to see redis output in console or any other stream
-     */
-    public void setSysOut(OutputStream sysOutStream) {
-        this.sysOutStream = sysOutStream;
+        this.sysOutStream = sysOutStream; //nullable
+
     }
 
     /**

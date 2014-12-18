@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.ServerSocket;
 
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
@@ -51,11 +52,68 @@ public class RembedisTest {
     public void testJedisPool() throws Exception {
 
         RedisServer redis = new RedisServer();
-        //redis.setSysOut(System.out);
         redis.start();
         Assertions.assertThat(redis.isRunning()).isTrue();
+        testJedisOperations(redis.getPort());
+        redis.close();
+    }
 
-        JedisPool pool = new JedisPool("localhost", redis.getPort());
+    @Test
+    public void testRestarts() {
+        RedisServer redis = new RedisServer();
+        Assertions.assertThat(redis.isRunning()).isFalse();
+        //When
+        redis.start();
+        Assertions.assertThat(redis.isRunning()).isTrue();
+        testJedisOperations(redis.getPort());
+
+        try {
+            redis.start();
+            Assertions.failBecauseExceptionWasNotThrown(IllegalStateException.class);
+        } catch (IllegalStateException isx) {
+            Assertions.assertThat(isx.getMessage()).isEqualTo("Redis already running. Port " + redis.getPort());
+        }
+
+        //When
+        int exit1 = redis.stop();
+        //Then
+        Assertions.assertThat(exit1).isZero();
+        Assertions.assertThat(redis.isRunning()).isFalse();
+
+        //When
+        int exit2 = redis.stop();
+        //Then
+        Assertions.assertThat(exit2).isEqualTo(Integer.MIN_VALUE);
+        Assertions.assertThat(redis.isRunning()).isFalse();
+
+        //When
+        redis.start();
+        Assertions.assertThat(redis.isRunning()).isTrue();
+        testJedisOperations(redis.getPort());
+
+        //When
+        int exit3 = redis.stop();
+        Assertions.assertThat(exit3).isZero();
+        Assertions.assertThat(redis.isRunning()).isFalse();
+    }
+
+    @Test
+    public void testBuilderMasterSlave() throws Exception {
+        ServerSocket socket = new ServerSocket(0);
+        int port = socket.getLocalPort();
+        socket.close();
+
+        RedisServer master = RedisServer.Builder().port(port)/*.setStdOutStream(System.err)*/.start(1000);
+        RedisServer slave = RedisServer.Builder().slaveof("localhost", port).configLine("bind 0.0.0.0")/*.setStdOutStream(System.out)*/.start();
+        testJedisOperations(master.getPort());
+
+        Thread.sleep(30);
+        String value = readJedis(slave.getPort(), "abc");
+        Assertions.assertThat(value).isEqualTo("1");
+    }
+
+    private void testJedisOperations(int port) {
+        JedisPool pool = new JedisPool("localhost", port);
         Jedis jedis = pool.getResource();
 
         jedis.mset("abc", "1", "def", "2");
@@ -65,36 +123,13 @@ public class RembedisTest {
         pool.returnResource(jedis);
 
         pool.close();
-        redis.close();
-
     }
 
-    @Test
-    public void testRestarts() {
-        RedisServer redis = new RedisServer();
-        Assertions.assertThat(redis.isRunning()).isFalse();
-        redis.start();
-        Assertions.assertThat(redis.isRunning()).isTrue();
-        try {
-            redis.start();
-            Assertions.failBecauseExceptionWasNotThrown(IllegalStateException.class);
-        } catch (IllegalStateException isx) {
-            Assertions.assertThat(isx.getMessage()).isEqualTo("Redis already running. Port " + redis.getPort());
-        }
-        int exit1 = redis.stop();
-        Assertions.assertThat(exit1).isZero();
-        Assertions.assertThat(redis.isRunning()).isFalse();
-
-        int exit2 = redis.stop();
-        Assertions.assertThat(exit2).isEqualTo(Integer.MIN_VALUE);
-        Assertions.assertThat(redis.isRunning()).isFalse();
-
-        redis.start();
-        Assertions.assertThat(redis.isRunning()).isTrue();
-        int exit3 = redis.stop();
-        Assertions.assertThat(exit3).isZero();
-        Assertions.assertThat(redis.isRunning()).isFalse();
-
+    private String readJedis(int port, String key) {
+        Jedis jedis = new Jedis("localhost", port);
+        String value = jedis.get(key);
+        jedis.close();
+        return value;
     }
 
     @Test

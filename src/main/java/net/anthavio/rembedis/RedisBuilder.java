@@ -31,6 +31,7 @@ package net.anthavio.rembedis;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -46,6 +47,8 @@ public class RedisBuilder {
 
     private static String NEW_LINE = System.getProperty("line.separator");
 
+    private File redisBinary;
+
     private File configFile;
 
     private StringBuilder configBuilder;
@@ -58,6 +61,8 @@ public class RedisBuilder {
 
     private String loglevel;
 
+    private OutputStream sysOutStream;
+
     public RedisBuilder port(int port) {
         this.port = port;
         return this;
@@ -66,6 +71,14 @@ public class RedisBuilder {
     public RedisBuilder slaveof(String slaveofHost, int slaveofPort) {
         this.slaveofHost = slaveofHost;
         this.slaveofPort = slaveofPort;
+        return this;
+    }
+
+    public RedisBuilder redisBinary(File redisBinary) {
+        if (redisBinary.exists() == false || redisBinary.canExecute()) {
+            throw new IllegalStateException("Redis binary does not exist or is not executable " + redisBinary);
+        }
+        this.redisBinary = redisBinary;
         return this;
     }
 
@@ -87,7 +100,18 @@ public class RedisBuilder {
         if (configFile != null) {
             throw new IllegalStateException("Configuration is already built by file");
         }
+        if (configBuilder == null) {
+            configBuilder = new StringBuilder();
+        }
         configBuilder.append(configLine).append(NEW_LINE);
+        return this;
+    }
+
+    /**
+     * Use System.out to see redis output in console or any other stream
+     */
+    public RedisBuilder setStdOutStream(OutputStream sysOutStream) {
+        this.sysOutStream = sysOutStream;
         return this;
     }
 
@@ -95,7 +119,7 @@ public class RedisBuilder {
         ArrayList<String> line = new ArrayList<String>();
         if (configBuilder != null) {
             try {
-                configFile = File.createTempFile("redis", ".conf");
+                configFile = File.createTempFile("redis-", ".conf");
                 configFile.deleteOnExit();
                 write(configBuilder, configFile);
             } catch (IOException iox) {
@@ -120,7 +144,20 @@ public class RedisBuilder {
             line.add("--loglevel");
             line.add(loglevel);
         }
-        return new RedisServer(line);
+        if (redisBinary == null) {
+            redisBinary = Rembedis.unpack();
+        }
+        return new RedisServer(redisBinary, line, sysOutStream);
+    }
+
+    public RedisServer start() {
+        return start(2000);
+    }
+
+    public RedisServer start(int timeoutMs) {
+        RedisServer redis = build();
+        redis.start(timeoutMs);
+        return redis;
     }
 
     private void write(StringBuilder configBuilder, File configFile) throws IOException {
@@ -137,9 +174,4 @@ public class RedisBuilder {
         }
     }
 
-    public RedisServer start(int timeoutMs) {
-        RedisServer redis = build();
-        redis.start(timeoutMs);
-        return redis;
-    }
 }

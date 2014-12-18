@@ -52,7 +52,7 @@ public interface StartupCheck {
         public boolean isStarted(Process process, List<String> sysOutErr) {
             try {
                 int exitValue = process.exitValue();
-                throw new StartupException("Process already ended with exit value " + exitValue);
+                throw new StartupException("Process already ended with exit value " + exitValue + "\nStdOut:\n" + sysOutErr);
             } catch (IllegalThreadStateException itx) {
                 //ok - process is still running
             }
