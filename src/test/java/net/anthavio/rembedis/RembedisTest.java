@@ -104,7 +104,7 @@ public class RembedisTest {
         socket.close();
 
         RedisServer master = RedisServer.Builder().port(port)/*.setStdOutStream(System.err)*/.start(1000);
-        RedisServer slave = RedisServer.Builder().slaveof("localhost", port).configLine("bind 0.0.0.0")/*.setStdOutStream(System.out)*/.start();
+        RedisServer slave = RedisServer.Builder().slaveOf("localhost", port).configLine("bind 0.0.0.0")/*.setStdOutStream(System.out)*/.start();
         testJedisOperations(master.getPort());
 
         Thread.sleep(100);

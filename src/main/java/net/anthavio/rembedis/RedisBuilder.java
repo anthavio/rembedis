@@ -63,22 +63,22 @@ public class RedisBuilder {
 
     private OutputStream sysOutStream;
 
+    public RedisBuilder executable(File redisBinary) {
+        if (redisBinary.exists() == false || redisBinary.canExecute()) {
+            throw new IllegalStateException("Redis binary does not exist or is not executable " + redisBinary);
+        }
+        this.redisBinary = redisBinary;
+        return this;
+    }
+
     public RedisBuilder port(int port) {
         this.port = port;
         return this;
     }
 
-    public RedisBuilder slaveof(String slaveofHost, int slaveofPort) {
+    public RedisBuilder slaveOf(String slaveofHost, int slaveofPort) {
         this.slaveofHost = slaveofHost;
         this.slaveofPort = slaveofPort;
-        return this;
-    }
-
-    public RedisBuilder redisBinary(File redisBinary) {
-        if (redisBinary.exists() == false || redisBinary.canExecute()) {
-            throw new IllegalStateException("Redis binary does not exist or is not executable " + redisBinary);
-        }
-        this.redisBinary = redisBinary;
         return this;
     }
 
