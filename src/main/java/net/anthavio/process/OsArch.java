@@ -1,5 +1,9 @@
 package net.anthavio.process;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 /**
  * http://stackoverflow.com/questions/1803075/crowdsourcing-a-complete-list-of-common-java-system-properties-and-known-values
  * http://lopica.sourceforge.net/os.html
@@ -15,15 +19,15 @@ public class OsArch {
 
     private final Arch arch;
 
-    private final Bit osBits;
+    private final Bit osBit;
 
-    private final Bit jvmBits;
+    private final Bit jvmBit;
 
     public OsArch(Os os, Arch arch, Bit osBits, Bit jvmBits) {
         this.os = os;
         this.arch = arch;
-        this.osBits = osBits;
-        this.jvmBits = jvmBits;
+        this.osBit = osBits;
+        this.jvmBit = jvmBits;
     }
 
     public Os getOs() {
@@ -34,25 +38,68 @@ public class OsArch {
         return arch;
     }
 
-    public Bit getOsBits() {
-        return osBits;
+    public Bit getOsBit() {
+        return osBit;
     }
 
-    public Bit getJvmBits() {
-        return jvmBits;
+    public Bit getJvmBit() {
+        return jvmBit;
     }
 
     @Override
     public String toString() {
-        return "OsArch [os=" + os + ", arch=" + arch + ", osBits=" + osBits + ", jvmBits=" + jvmBits + "]";
+        return "OsArch [Os=" + os + ", Arch=" + arch + ", OsBit=" + osBit + ", JvmBit=" + jvmBit + "]";
     }
 
-    public static OsArch detect() {
-        Os os = detectOs();
-        Arch arch = detectArch();
-        Bit osBits = detectOsBits();
-        Bit jvmBits = detectJvmBits();
-        return new OsArch(os, arch, osBits, jvmBits);
+    static class DetectedOsArch extends OsArch {
+
+        private final String osName = System.getProperty("os.name");
+
+        private final String osArch = System.getProperty("os.arch");
+
+        private final String sysinfo; //uname or systeminfo on windows
+
+        public DetectedOsArch(Os os, Arch arch, Bit osBits, Bit jvmBits, String uname) {
+            super(os, arch, osBits, jvmBits);
+            this.sysinfo = uname;
+        }
+
+        public String getOsName() {
+            return osName;
+        }
+
+        public String getOsArch() {
+            return osArch;
+        }
+
+        public String getSysinfo() {
+            return sysinfo;
+        }
+
+        @Override
+        public String toString() {
+            return "DetectedOsArch [Os=" + getOs() + " (" + osName + "), Arch=" + getArch() + " (" + osArch + "), OsBit=" + getOsBit() + ", JvmBit=" + getJvmBit() + ", SysInfo='"
+                    + sysinfo + "' ]";
+        }
+    }
+
+    private static DetectedOsArch detected;
+
+    public static synchronized DetectedOsArch detect() {
+        if (detected == null) {
+            Os os = detectOs();
+            Arch arch = detectArch();
+            Bit osBits = detectOsBits(os);
+            Bit jvmBits = detectJvmBits();
+            String sysinfo;
+            if (os == Os.WINDOWS) {
+                sysinfo = execShell("systeminfo");
+            } else {
+                sysinfo = execShell("uname -a");
+            }
+            detected = new DetectedOsArch(os, arch, osBits, jvmBits, sysinfo);
+        }
+        return detected;
     }
 
     public static Os detectOs() {
@@ -97,20 +144,39 @@ public class OsArch {
     /**
      * 
      */
-    public static Bit detectOsBits() {
+    public static Bit detectOsBits(Os os) {
+        //On 64bit MacOS X Java6 -d32 returns 32 here! Check others 
         if (System.getProperty("sun.arch.data.model", "").contains("64") || // Sun/Oracle JVM
                 System.getProperty("os.arch", "").contains("64") || // x86_64
                 System.getProperty("com.ibm.vm.bitmode", "").contains("64")) {
             return Bit.B64;
-        } else {
-            return Bit.B32;
+        } else if (os == Os.MACOS) {
+            // Macosx: uname -m -> i386/x86_64
+            String uname = execShell("uname -m");
+            if (uname != null && uname.contains("64")) {
+                return Bit.B64;
+            }
+        } else if (os == Os.WINDOWS && System.getenv("ProgramFiles(x86)") != null) {
+            return Bit.B64;
+            /*
+            String arch = System.getenv("PROCESSOR_ARCHITECTURE");
+            String wow64Arch = System.getenv("PROCESSOR_ARCHITEW6432");
+            String realArch = arch.endsWith("64")
+                  || wow64Arch != null && wow64Arch.endsWith("64")
+                      ? "64" : "32";
+             */
         }
 
+        return Bit.B32;
+        // http://en.wikipedia.org/wiki/Uname
+        // https://projects.puppetlabs.com/issues/16506
+
         // armv7l is 32b
-        // HP-UX: getconf KERNEL_BITS
-        // AIX: getconf KERNEL_BITMODE
-        // Solaris: isainfo -v
-        // Macosx: uname -m
+        // HP-UX: getconf KERNEL_BITS -> 32/64
+        // AIX: getconf KERNEL_BITMODE -> 32/64
+        // Solaris: isainfo -b -> 32/64
+        // Linux: uname -m -> i386/x86_64
+
     }
 
     /**
@@ -133,7 +199,7 @@ public class OsArch {
 
     public static Arch detectArch() {
         String osArch = System.getProperty("os.arch", "").toLowerCase();
-        if (osArch.contains("x86") || osArch.contains("i386") || osArch.contains("i686")) { //TODO i386, i686
+        if (osArch.contains("x86") || osArch.contains("i386") || osArch.contains("i686")) {
             return Arch.X86;
         } else if (osArch.contains("sparc")) {
             return Arch.SPARC;
@@ -148,7 +214,21 @@ public class OsArch {
         } else {
             return Arch.UNKNOWN;
         }
-
     }
 
+    public static String execShell(String command) {
+        Process process;
+        try {
+            process = new ProcessBuilder("sh", "-c", command).redirectErrorStream(true).start();
+            BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line = br.readLine();
+            process.destroy();
+            return line;
+        } catch (IOException iox) {
+            // TODO Auto-generated catch block
+            //e.printStackTrace();
+        }
+        return null;
+
+    }
 }
