@@ -164,6 +164,7 @@ public class RembedisTest {
 
         String javaUserDir = System.getProperty("user.dir");
         Assertions.assertThat(binary.getParentFile()).isEqualTo(new File(javaUserDir, targetDir));
+        
         assertProcessExecution(binary);
 
         long lastModified = binary.lastModified();
@@ -188,6 +189,9 @@ public class RembedisTest {
         Assertions.assertThat(binary).isFile();
         Assertions.assertThat(binary.canExecute()).isTrue();
 
+        if(System.getProperty("os.name").toLowerCase().contains("windows")) {
+        	return; // Windows binaries do not know --version parameter :(
+        }
         Process process = new ProcessBuilder(binary.getAbsolutePath(), "--version").start();
         String sysout = capture(process.getInputStream());
         String syserr = capture(process.getErrorStream());
