@@ -145,7 +145,7 @@ public class RedisBuilder {
             line.add(loglevel);
         }
         if (redisBinary == null) {
-            redisBinary = Rembedis.unpack();
+            redisBinary = RedisServer.unpack();
         }
         return new RedisServer(redisBinary, line, sysOutStream);
     }

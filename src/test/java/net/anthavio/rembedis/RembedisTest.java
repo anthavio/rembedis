@@ -35,6 +35,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 
+import net.anthavio.embed.Unpacker;
+import net.anthavio.process.Bit;
+import net.anthavio.process.Os;
+
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 
@@ -134,16 +138,16 @@ public class RembedisTest {
 
     @Test
     public void testJavaIoTmpDirectory() throws IOException, InterruptedException {
-        File binary = Rembedis.unpack();
+        File binary = RedisServer.unpack();
 
         String javaIoTmpdir = System.getProperty("java.io.tmpdir");
-        File expectedDir = new File(javaIoTmpdir, "redis-" + Rembedis.REDIS_VERSION);
+        File expectedDir = new File(javaIoTmpdir, "redis-" + RedisServer.REDIS_VERSION);
         Assertions.assertThat(binary.getParentFile()).isEqualTo(expectedDir);
         assertProcessExecution(binary);
 
         long lastModified = binary.lastModified();
 
-        File binary2 = Rembedis.unpack(); //existing file is returned
+        File binary2 = RedisServer.unpack(); //existing file is returned
         Assertions.assertThat(binary2.lastModified()).isEqualTo(lastModified); // SAME
         assertProcessExecution(binary2);
 
@@ -151,7 +155,7 @@ public class RembedisTest {
         Assertions.assertThat(binary.exists()).isFalse();
         Thread.sleep(1000); //1 second at least!
 
-        File binary3 = Rembedis.unpack(); //new file must be unpacked
+        File binary3 = RedisServer.unpack(); //new file must be unpacked
         Assertions.assertThat(binary3.lastModified()).isNotEqualTo(lastModified); //DIFF
         assertProcessExecution(binary3);
     }
@@ -159,18 +163,24 @@ public class RembedisTest {
     @Test
     public void testLocalTargetDirectory() throws IOException, InterruptedException {
         String targetDir = "target/redis-test/unpack";
-        String binaryPath = Rembedis.unpack(targetDir);
-        File binary = new File(binaryPath);
+
+        Unpacker unpacker = Unpacker.Builder().//
+                setName("redis").setVersion(RedisServer.REDIS_VERSION).//
+                addBinary(Os.WINDOWS, Bit.B64, "windows/redis-server.exe").//
+                addBinary(Os.MACOS, Bit.B64, "macosx/redis-server").//
+                addBinary(Os.LINUX, Bit.B32, "linux86/redis-server").//
+                addBinary(Os.LINUX, Bit.B64, "linux64/redis-server").setDestination(targetDir).build();
+
+        File binary = unpacker.unpack();
 
         String javaUserDir = System.getProperty("user.dir");
-        Assertions.assertThat(binary.getParentFile()).isEqualTo(new File(javaUserDir, targetDir));
-        
+        Assertions.assertThat(binary.getParentFile().getAbsolutePath()).isEqualTo(new File(javaUserDir, targetDir + File.separator + "redis-2.8.9").getAbsolutePath());
+
         assertProcessExecution(binary);
 
         long lastModified = binary.lastModified();
 
-        String binaryPath2 = Rembedis.unpack(targetDir); //existing file is returned
-        File binary2 = new File(binaryPath2);
+        File binary2 = unpacker.unpack(); //existing file is returned
         Assertions.assertThat(binary2.lastModified()).isEqualTo(lastModified); // SAME
         assertProcessExecution(binary2);
 
@@ -178,8 +188,7 @@ public class RembedisTest {
         Assertions.assertThat(binary.exists()).isFalse();
         Thread.sleep(1000); //1 second at least!
 
-        String binaryPath3 = Rembedis.unpack(targetDir); //new file must be unpacked
-        File binary3 = new File(binaryPath3);
+        File binary3 = unpacker.unpack(); //new file must be unpacked
         Assertions.assertThat(binary3.lastModified()).isNotEqualTo(lastModified); //DIFF
         assertProcessExecution(binary3);
     }
@@ -189,8 +198,8 @@ public class RembedisTest {
         Assertions.assertThat(binary).isFile();
         Assertions.assertThat(binary.canExecute()).isTrue();
 
-        if(System.getProperty("os.name").toLowerCase().contains("windows")) {
-        	return; // Windows binaries do not know --version parameter :(
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            return; // Windows binaries do not know --version parameter :(
         }
         Process process = new ProcessBuilder(binary.getAbsolutePath(), "--version").start();
         String sysout = capture(process.getInputStream());
@@ -202,7 +211,7 @@ public class RembedisTest {
         }
         Assertions.assertThat(process.exitValue()).isEqualTo(0);
         Assertions.assertThat(syserr).isEmpty();
-        Assertions.assertThat(sysout).startsWith("Redis server v=" + Rembedis.REDIS_VERSION);
+        Assertions.assertThat(sysout).startsWith("Redis server v=" + RedisServer.REDIS_VERSION);
     }
 
     private String capture(InputStream stream) throws IOException {

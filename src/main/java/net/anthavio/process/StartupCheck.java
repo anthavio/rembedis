@@ -75,9 +75,9 @@ public interface StartupCheck {
 
         @Override
         public boolean isStarted(Process process, List<String> sysOutErr) {
-            // super - check process itself
+            // super - check process running
             super.isStarted(process, sysOutErr);
-            // seearch stdout
+            // seearch stdout lines
             for (String line : sysOutErr) {
                 if (pattern.matcher(line).find()) {
                     return true;

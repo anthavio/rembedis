@@ -44,14 +44,14 @@ import java.util.Map;
  * @author mvanek
  *
  */
-public class ExternalProcess implements Closeable {
+public class OsProcess implements Closeable {
 
-    public static ExternalProcessBuilder Builder() {
-        return new ExternalProcessBuilder();
+    public static OsProcessBuilder Builder() {
+        return new OsProcessBuilder();
     }
 
-    public static ExternalProcessBuilder Builder(String... command) {
-        return new ExternalProcessBuilder(command);
+    public static OsProcessBuilder Builder(String... command) {
+        return new OsProcessBuilder(command);
     }
 
     private final List<String> sysout = new ArrayList<String>();
@@ -64,18 +64,18 @@ public class ExternalProcess implements Closeable {
 
     private final List<String> command;
     private final StartupCheck startupCheck;
-    private final ShutdownHook shutdownHook;
     private final File workingDirectory;
     private final Map<String, String> environment;
     private final boolean redirectStdErrToStdOut;
     private final OutputStream stdOutStream;
 
     private Process process;
+    private final Shutdown shutdown;
 
     private boolean started = false;
     private Exception exception = null;
 
-    public ExternalProcess(List<String> command, StartupCheck startupCheck, ShutdownHook shutdownHook, File workingDirectory, Map<String, String> environment,
+    public OsProcess(List<String> command, StartupCheck startupCheck, Shutdown shutdownHook, File workingDirectory, Map<String, String> environment,
             boolean redirectStdErrToStdOut, OutputStream stdOutStream) {
 
         if (command == null || command.size() == 0) {
@@ -91,7 +91,7 @@ public class ExternalProcess implements Closeable {
         if (shutdownHook == null) {
             throw new IllegalArgumentException("Null shutdownHook");
         }
-        this.shutdownHook = shutdownHook;
+        this.shutdown = shutdownHook;
 
         if (workingDirectory != null && (workingDirectory.exists() == false || workingDirectory.isDirectory() == false)) {
             throw new IllegalArgumentException("Invalid working directory: " + workingDirectory);
@@ -196,7 +196,7 @@ public class ExternalProcess implements Closeable {
             throw new StartupException(message);
         }
 
-        shutdownThread = new ShutdownHookThread(process, shutdownHook);
+        shutdownThread = new ShutdownHookThread(process, shutdown);
         Runtime.getRuntime().addShutdownHook(shutdownThread);
     }
 
@@ -231,7 +231,8 @@ public class ExternalProcess implements Closeable {
                             //sysout.clear(); //empty it as not needed anymore?
                         }
                     }
-                    //Good practice of emptying process output as it may hang  
+                    //Do not leave - Good practice of emptying process stdout...  
+
                     if (stdOutStream != null) {
                         stdOutStream.write(line.getBytes());
                         stdOutStream.write('\n');
@@ -247,9 +248,9 @@ public class ExternalProcess implements Closeable {
     static class ShutdownHookThread extends Thread {
 
         private final Process process;
-        private final ShutdownHook hook;
+        private final Shutdown hook;
 
-        public ShutdownHookThread(Process process, ShutdownHook hook) {
+        public ShutdownHookThread(Process process, Shutdown hook) {
             setName("ps-destroyer-" + process);
             this.process = process;
             this.hook = hook;

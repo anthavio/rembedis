@@ -37,7 +37,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import net.anthavio.process.ExternalProcess;
+import net.anthavio.embed.Unpacker;
+import net.anthavio.process.Bit;
+import net.anthavio.process.Os;
+import net.anthavio.process.OsProcess;
 import net.anthavio.process.StartupCheck.SysoutRegexCheck;
 
 /**
@@ -54,11 +57,24 @@ public class RedisServer implements Closeable {
         return new RedisBuilder();
     }
 
+    public static final String REDIS_VERSION = "2.8.9";
+
+    private static final Unpacker UNPACKER = Unpacker.Builder().//
+            setName("redis").setVersion(REDIS_VERSION).//
+            addBinary(Os.WINDOWS, Bit.B64, "windows/redis-server.exe").//
+            addBinary(Os.MACOS, Bit.B64, "macosx/redis-server").//
+            addBinary(Os.LINUX, Bit.B32, "linux86/redis-server").//
+            addBinary(Os.LINUX, Bit.B64, "linux64/redis-server").build();
+
+    public static File unpack() {
+        return UNPACKER.unpack();
+    }
+
     private final int port;
 
     private final List<String> command;
 
-    private ExternalProcess process;
+    private OsProcess process;
 
     private OutputStream sysOutStream;
 
@@ -71,7 +87,7 @@ public class RedisServer implements Closeable {
     }
 
     public RedisServer(List<String> params) {
-        this(Rembedis.unpack(), params);
+        this(UNPACKER.unpack(), params);
     }
 
     public RedisServer(File executable, List<String> params) {
@@ -113,7 +129,7 @@ public class RedisServer implements Closeable {
         if (isRunning()) {
             throw new IllegalStateException("Redis already running. Port " + port);
         }
-        process = ExternalProcess.Builder().setCommand(command).setRedirectStdErrToStdOut(true).setStdOutStream(sysOutStream)
+        process = OsProcess.Builder().setCommand(command).setRedirectStdErrToStdOut(true).setStdOutStream(sysOutStream)
                 .setStartupCheck(new SysoutRegexCheck("The server is now ready to accept connections")).build();
         process.start(timeoutMs);
     }

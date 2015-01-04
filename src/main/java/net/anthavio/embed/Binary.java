@@ -26,20 +26,36 @@
  * of the authors and should not be interpreted as representing official policies,
  * either expressed or implied, of the FreeBSD Project.
  */
-package net.anthavio.process;
+package net.anthavio.embed;
+
+import net.anthavio.process.Arch;
+import net.anthavio.process.Bit;
+import net.anthavio.process.Os;
+import net.anthavio.process.Platform;
 
 /**
  * 
  * @author mvanek
  *
  */
-public enum Arch {
+public class Binary extends Platform {
 
-    UNSET, //
-    X86, //Windows, Linux,
-    SPARC, //Solaris 
-    POWER, // PPC
-    PARISC, //HP-UX
-    IA64, // Intel Itanium
-    ARM; //Raspberry Pi, android
+    private final String resource;
+
+    public Binary(Os os, Bit osBits, String resource) {
+        this(os, Arch.UNSET, osBits, Bit.UNSET, resource);
+    }
+
+    public Binary(Os os, Arch arch, Bit osBits, Bit jvmBits, String resource) {
+        super(os, arch, osBits, jvmBits);
+        if (resource == null || resource.isEmpty()) {
+            throw new IllegalArgumentException("Null or empty resource: " + resource);
+        }
+        this.resource = resource;
+    }
+
+    public String getResource() {
+        return resource;
+    }
+
 }

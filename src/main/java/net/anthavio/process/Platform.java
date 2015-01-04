@@ -1,3 +1,31 @@
+/**
+ * Copyright © 2014, Anthavio
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * The views and conclusions contained in the software and documentation are those
+ * of the authors and should not be interpreted as representing official policies,
+ * either expressed or implied, of the FreeBSD Project.
+ */
 package net.anthavio.process;
 
 import java.io.BufferedReader;
@@ -13,21 +41,21 @@ import java.io.InputStreamReader;
  * @author mvanek
  *
  */
-public class OsArch {
+public class Platform {
 
     private final Os os;
 
     private final Arch arch;
 
-    private final Bit osBit;
+    private final Bit osBits;
 
-    private final Bit jvmBit;
+    private final Bit vmBits;
 
-    public OsArch(Os os, Arch arch, Bit osBits, Bit jvmBits) {
+    public Platform(Os os, Arch arch, Bit osBits, Bit vmBits) {
         this.os = os;
         this.arch = arch;
-        this.osBit = osBits;
-        this.jvmBit = jvmBits;
+        this.osBits = osBits;
+        this.vmBits = vmBits;
     }
 
     public Os getOs() {
@@ -38,20 +66,20 @@ public class OsArch {
         return arch;
     }
 
-    public Bit getOsBit() {
-        return osBit;
+    public Bit getOsBits() {
+        return osBits;
     }
 
-    public Bit getJvmBit() {
-        return jvmBit;
+    public Bit getVmBits() {
+        return vmBits;
     }
 
     @Override
     public String toString() {
-        return "OsArch [Os=" + os + ", Arch=" + arch + ", OsBit=" + osBit + ", JvmBit=" + jvmBit + "]";
+        return "OsArch [Os=" + os + ", Arch=" + arch + ", OsBit=" + osBits + ", JvmBit=" + vmBits + "]";
     }
 
-    static class DetectedOsArch extends OsArch {
+    public static class DetectedPlatform extends Platform {
 
         private final String osName = System.getProperty("os.name");
 
@@ -59,7 +87,7 @@ public class OsArch {
 
         private final String sysinfo; //uname or systeminfo on windows
 
-        public DetectedOsArch(Os os, Arch arch, Bit osBits, Bit jvmBits, String uname) {
+        public DetectedPlatform(Os os, Arch arch, Bit osBits, Bit jvmBits, String uname) {
             super(os, arch, osBits, jvmBits);
             this.sysinfo = uname;
         }
@@ -78,14 +106,14 @@ public class OsArch {
 
         @Override
         public String toString() {
-            return "DetectedOsArch [Os=" + getOs() + " (" + osName + "), Arch=" + getArch() + " (" + osArch + "), OsBit=" + getOsBit() + ", JvmBit=" + getJvmBit() + ", SysInfo='"
+            return "DetectedOsArch [Os=" + getOs() + " (" + osName + "), Arch=" + getArch() + " (" + osArch + "), OsBit=" + getOsBits() + ", JvmBit=" + getVmBits() + ", SysInfo='"
                     + sysinfo + "' ]";
         }
     }
 
-    private static DetectedOsArch detected;
+    private static DetectedPlatform detected;
 
-    public static synchronized DetectedOsArch detect() {
+    public static synchronized DetectedPlatform detect() {
         if (detected == null) {
             Os os = detectOs();
             Arch arch = detectArch();
@@ -97,7 +125,7 @@ public class OsArch {
             } else {
                 sysinfo = execShell("uname -a");
             }
-            detected = new DetectedOsArch(os, arch, osBits, jvmBits, sysinfo);
+            detected = new DetectedPlatform(os, arch, osBits, jvmBits, sysinfo);
         }
         return detected;
     }
@@ -136,7 +164,7 @@ public class OsArch {
         } else if (osName.contains("aix")) {
             os = Os.AIX;
         } else {
-            os = Os.UNKNOWN;
+            os = Os.UNSET;
         }
         return os;
     }
@@ -212,7 +240,7 @@ public class OsArch {
         } else if (osArch.contains("arm")) {
             return Arch.ARM;
         } else {
-            return Arch.UNKNOWN;
+            return Arch.UNSET;
         }
     }
 

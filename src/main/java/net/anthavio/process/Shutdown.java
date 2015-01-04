@@ -33,20 +33,20 @@ package net.anthavio.process;
  * @author mvanek
  *
  */
-public interface ShutdownHook {
+public interface Shutdown {
 
     public void shutdown(Process process);
 
-    public static class DefaultShutdownHook implements ShutdownHook {
+    public static class DefaultShutdown implements Shutdown {
 
         @Override
         public void shutdown(Process process) {
             if (process != null) {
                 try {
                     process.exitValue();
-                    return; //process already ended
+                    return; //ok - process already ended
                 } catch (IllegalThreadStateException itx) {
-                    //ok - process is still running
+                    //ok - process still running
                 }
                 process.destroy();
             }
